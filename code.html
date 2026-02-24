@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>IMPULSE V5 // ULTIMATE MANUAL</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@300;400;600;800;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            /* COLORS */
+            --bg: #050505;
+            --bg-alt: #0a0a0a;
+            --panel: #111;
+            --border: #333;
+            --accent: #00ccff;
+            --accent-glow: rgba(0, 204, 255, 0.4);
+            --danger: #ff0055;
+            --text: #e0e0e0;
+            --text-dim: #666;
+            
+            /* SYNTAX HIGHLIGHTING COLORS */
+            --sh-keyword: #ff00de; 
+            --sh-var: #00ccff; 
+            --sh-string: #ffcc00; 
+            --sh-num: #00ff66; 
+            --sh-comment: #555;    
+
+            /* EDITOR GEOMETRY (CRITICAL FOR GHOST FIX) */
+            --ed-font: 'JetBrains Mono', monospace;
+            --ed-size: 14px;
+            --ed-line: 24px;
+            --ed-pad: 20px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        
+        body { 
+            background: var(--bg); color: var(--text); 
+            font-family: 'Inter', sans-serif; line-height: 1.6; 
+            overflow-x: hidden; scroll-behavior: smooth;
+            -webkit-text-size-adjust: 100%;
+        }
+
+        /* --- BACKGROUND FX --- */
+        .scanlines {
+            position: fixed; inset: 0; pointer-events: none; z-index: 999; opacity: 0.05;
+            background: repeating-linear-gradient(0deg, transparent 0px, transparent 1px, #fff 2px);
+        }
+        .vignette {
+            position: fixed; inset: 0; pointer-events: none; z-index: 998;
+            background: radial-gradient(circle, transparent 60%, #000 120%);
+        }
+        .bg-grid {
+            position: fixed; inset: 0; z-index: -1; opacity: 0.1;
+            background-image: linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px);
+            background-size: 40px 40px; transform: perspective(500px) rotateX(20deg); transform-origin: top;
+        }
+
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 40px; position: relative; z-index: 10; }
+
+        /* --- TYPOGRAPHY --- */
+        header { padding: 120px 0 80px; text-align: center; border-bottom: 1px solid var(--border); margin-bottom: 80px; }
+        
+        h1 {
+            font-size: 5rem; line-height: 0.9; font-weight: 900; letter-spacing: -3px;
+            color: #fff; margin-bottom: 20px; text-transform: uppercase;
+            text-shadow: 0 0 50px rgba(0, 204, 255, 0.2);
+        }
+        h1 span { color: var(--accent); display: inline-block; position: relative; }
+        h1 span::after { content:'v5.0'; position:absolute; top:0; right:-40px; font-size:1rem; background:var(--danger); color:#fff; padding:2px 6px; border-radius:4px; transform:rotate(-10deg); letter-spacing:0; }
+
+        h2 { 
+            font-size: 2.5rem; color: #fff; margin-top: 100px; margin-bottom: 30px; 
+            border-left: 5px solid var(--accent); padding-left: 25px;
+            background: linear-gradient(90deg, rgba(0,204,255,0.05), transparent);
+            padding-top: 10px; padding-bottom: 10px; border-radius: 0 8px 8px 0;
+        }
+        
+        h3 { font-size: 1.4rem; color: #fff; margin-top: 50px; margin-bottom: 15px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+        h3::before { content: '#'; color: var(--danger); opacity: 0.5; }
+
+        p, li { color: #aaa; margin-bottom: 15px; font-size: 1.1rem; max-width: 800px; }
+        ul { padding-left: 20px; margin-bottom: 40px; }
+        li::marker { color: var(--accent); }
+
+        /* --- SCROLL ANIMATION --- */
+        .reveal { opacity: 0; transform: translateY(30px); transition: 0.8s cubic-bezier(0.2, 0.8, 0.2, 1); }
+        .reveal.active { opacity: 1; transform: translateY(0); }
+
+        /* --- THE EDITOR COMPONENT --- */
+        .compiler-zone {
+            display: grid; grid-template-columns: 1.5fr 1fr; gap: 0;
+            background: #000; border: 1px solid var(--border); border-radius: 12px;
+            overflow: hidden; height: 650px; margin-bottom: 100px;
+            box-shadow: 0 20px 80px rgba(0,0,0,0.7);
+        }
+
+        .editor-wrapper { 
+            position: relative; border-right: 1px solid var(--border); 
+            background: #080808; display: flex; flex-direction: column;
+        }
+        
+        .editor-toolbar {
+            height: 40px; background: #111; border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: space-between; padding: 0 20px;
+            font-family: var(--ed-font); font-size: 11px; color: #666; user-select: none;
+        }
+        .dot { width: 10px; height: 10px; border-radius: 50%; background: #333; margin-right: 6px; display: inline-block; }
+        .dot.r { background: #ff5f56; } .dot.y { background: #ffbd2e; } .dot.g { background: #27c93f; }
+
+        /* EDITOR CONTAINER - The Stack Context */
+        .code-container {
+            position: relative;
+            flex: 1;
+            width: 100%;
+            height: 100%;
+            overflow: hidden; /* Scroll is handled by textarea */
+        }
+
+        /* COMMON STYLES FOR GHOST TEXT FIX */
+        .code-shared {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            padding: var(--ed-pad);
+            font-family: var(--ed-font);
+            font-size: var(--ed-size);
+            line-height: var(--ed-line);
+            border: none;
+            background: transparent;
+            white-space: pre; /* VITAL: Ensures wrapping is identical (off) */
+            overflow: auto;
+            tab-size: 4;
+            margin: 0;
+            box-sizing: border-box;
+            word-wrap: normal;
+        }
+
+        /* 1. The Highlight Layer (Bottom) */
+        #highlight-layer {
+            z-index: 1;
+            color: transparent; 
+            pointer-events: none; 
+            color: #fff; /* Fallback */
+        }
+
+        /* 2. The Input Layer (Top) */
+        #input-code {
+            z-index: 2;
+            color: transparent; 
+            caret-color: var(--accent); 
+            resize: none;
+            outline: none;
+        }
+        
+        #input-code::selection { background: rgba(0, 204, 255, 0.2); color: transparent; }
+
+        /* PREVIEW SIDE */
+        .preview-wrapper {
+            position: relative; background: radial-gradient(circle at center, #1a1a1a 0%, #000 100%);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+        }
+        
+        .preview-obj {
+            width: 50px; height: 50px; background: #fff; border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 900; color: #000; font-family: 'Inter'; font-size: 14px; letter-spacing: 1px;
+            box-shadow: 0 0 50px rgba(0,0,0,0.5); 
+            /* Transition managed by WAAPI JS now */
+        }
+
+        .console-log {
+            position: absolute; bottom: 0; left: 0; width: 100%; height: 200px;
+            background: rgba(0,0,0,0.9); border-top: 1px solid var(--border); padding: 15px;
+            font-family: var(--ed-font); font-size: 11px; color: #666; overflow-y: auto;
+            backdrop-filter: blur(5px);
+        }
+        .log-entry { margin-bottom: 4px; padding-bottom: 2px; border-bottom: 1px solid #111; display: flex; gap: 10px; }
+        .log-time { color: #444; min-width: 50px; }
+
+        .run-btn {
+            position: absolute; top: 20px; right: 20px; z-index: 10;
+            background: var(--accent); color: #000; border: none; padding: 12px 25px;
+            font-family: var(--ed-font); font-weight: 800; border-radius: 4px; font-size: 12px;
+            cursor: pointer; transition: 0.2s; text-transform: uppercase; letter-spacing: 1px;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .run-btn:hover { background: #fff; box-shadow: 0 0 20px var(--accent-glow); }
+        .run-btn span { font-size: 16px; }
+
+        /* --- CARDS & GRIDS --- */
+        .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 60px; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-bottom: 60px; }
+        
+        .card {
+            background: var(--panel); border: 1px solid var(--border); padding: 25px;
+            border-radius: 8px; transition: 0.3s; position: relative; overflow: hidden;
+        }
+        .card::before { content:''; position:absolute; top:0; left:0; width:2px; height:100%; background:var(--accent); opacity:0; transition:0.3s; }
+        .card:hover { transform: translateY(-5px); background: var(--bg-alt); }
+        .card:hover::before { opacity: 1; }
+        
+        .card-head { font-family: var(--ed-font); color: var(--accent); font-size: 0.9rem; margin-bottom: 10px; display: block; opacity: 0.8; }
+        .card-title { font-weight: 700; color: #fff; font-size: 1.2rem; margin-bottom: 10px; }
+
+        /* --- CODE SNIPPETS --- */
+        .snippet-box { margin-bottom: 40px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+        .snippet-header { background: #111; padding: 10px 20px; border-bottom: 1px solid var(--border); font-family: var(--ed-font); font-size: 11px; color: #666; }
+        
+        pre {
+            background: #050505; padding: 20px; overflow-x: auto; margin: 0;
+            font-family: var(--ed-font); font-size: 13px; line-height: 1.6; color: #ccc;
+        }
+
+        /* SYNTAX CLASSES */
+        .hl-k { color: var(--sh-keyword); font-weight: bold; }
+        .hl-v { color: var(--sh-var); }
+        .hl-s { color: var(--sh-string); }
+        .hl-n { color: var(--sh-num); }
+        .hl-c { color: var(--sh-comment); font-style: italic; }
+        .hl-op { color: #fff; }
+
+        /* TABLE */
+        table { width: 100%; border-collapse: collapse; margin-bottom: 40px; font-size: 0.9rem; }
+        th { text-align: left; padding: 15px; border-bottom: 1px solid var(--accent); color: var(--accent); font-family: var(--ed-font); text-transform: uppercase; font-size: 11px; }
+        td { padding: 15px; border-bottom: 1px solid var(--border); color: #888; }
+        tr:hover td { background: rgba(255,255,255,0.02); color: #fff; }
+        code.inline { background: rgba(255,255,255,0.1); padding: 2px 5px; border-radius: 3px; font-family: var(--ed-font); color: #fff; font-size: 0.8em; }
+
+        /* Footer */
+        footer { border-top: 1px solid var(--border); padding: 80px 0; margin-top: 100px; text-align: center; color: #444; font-family: var(--ed-font); font-size: 12px; }
+
+        /* ========================================= */
+        /* MEDIA QUERIES FOR RESPONSIVE (MOBILE/TAB) */
+        /* ========================================= */
+        
+        /* TABLETS (iPad, etc) */
+        @media (max-width: 1024px) {
+            .container { padding: 0 20px; }
+            h1 { font-size: 3.5rem; }
+            h2 { font-size: 2rem; }
+            .compiler-zone { 
+                display: flex; flex-direction: column; 
+                height: auto; 
+            }
+            .editor-wrapper { 
+                height: 50vh; min-height: 400px; 
+                border-right: none; border-bottom: 1px solid var(--border); 
+            }
+            .preview-wrapper { height: 40vh; min-height: 350px; }
+            .console-log { height: 120px; }
+        }
+
+        /* MOBILE DEVICES */
+        @media (max-width: 768px) {
+            header { padding: 60px 0 40px; }
+            h1 { font-size: 2.8rem; letter-spacing: -1px; }
+            h1 span::after { right: -25px; font-size: 0.8rem; }
+            
+            /* Stack Editor and Preview */
+            .compiler-zone { 
+                display: flex; flex-direction: column; 
+                height: auto; margin-bottom: 60px;
+            }
+            
+            .editor-wrapper { 
+                width: 100%; 
+                height: 50vh; 
+                min-height: 350px; 
+                border-right: none; 
+                border-bottom: 1px solid var(--border);
+            }
+
+            .preview-wrapper { 
+                width: 100%; 
+                height: 50vh; 
+                min-height: 300px; 
+            }
+            
+            /* Adjust Editor Font for Mobile readability */
+            :root {
+                --ed-size: 12px; 
+                --ed-pad: 15px;
+            }
+
+            /* Allow horizontal scroll inside editor to prevent wrapping issues */
+            #input-code, #highlight-layer {
+                width: 200%; /* Force wide width for horizontal scrolling */
+            }
+
+            /* Adjust Grids to Single Column */
+            .grid-2, .grid-3 { grid-template-columns: 1fr; gap: 20px; }
+            
+            .run-btn {
+                top: auto; bottom: 20px; right: 20px;
+                padding: 10px 20px;
+            }
+            
+            /* Responsive tables */
+            table { display: block; overflow-x: auto; white-space: nowrap; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="scanlines"></div>
+    <div class="vignette"></div>
+    <div class="bg-grid"></div>
+
+    <div class="container">
+        
+        <header class="reveal">
+            <div style="font-family: var(--ed-font); color:var(--accent); margin-bottom:20px; letter-spacing: 2px;">//MORE FEATURES CMG SOON!</div>
+            <h1>IMPULSE <span>SCRIPT</span></h1>
+            <p style=" text-align: center; margin: 0 auto;">The definitive manual for the Impulse V5 Logic Engine.</p>
+        </header>
+
+        <div class="compiler-zone reveal">
+            <div class="editor-wrapper">
+                <div class="editor-toolbar">
+                    <div>
+                        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+                    </div>
+                    <span>main.ix - Read/Write</span>
+                </div>
+                
+                <div class="code-container">
+                    <pre id="highlight-layer" class="code-shared" aria-hidden="true"></pre>
+                    <textarea id="input-code" class="code-shared" spellcheck="false" oninput="updateSyntax()" onscroll="syncScroll()">
+
+var duration = 1000;
+
+// Example: 
+property = "Scale";
+values = [0, 150];
+keyframes = [0, duration]; 
+</textarea>
+                </div>
+            </div>
+
+            <div class="preview-wrapper">
+                <button class="run-btn" onclick="runCompiler()"><span>▶</span> EXECUTE</button>
+                <div class="preview-obj" id="demo-layer">OBJ</div>
+                <div class="console-log" id="console">
+                    <div class="log-entry"><span class="log-time">00:00</span><span>System Ready...</span></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="reveal">
+            <h2>01. Introduction</h2>
+            <p>ImpulseScript is a high-level abstraction layer designed for Adobe After Effects. It allows you to write complex animation logic using simple, readable keywords. The V5 engine translates this code into native Expressions, Keyframes, and Effects instantly.</p>
+        </div>
+
+        <div class="grid-3 reveal">
+            <div class="card">
+                <span class="card-head">CORE CONCEPT</span>
+                <div class="card-title">Variable Logic</div>
+                <p>Define numbers once at the top of your script (e.g., <code>var dur = 20;</code>) and use them everywhere. Change one number to update the entire animation.</p>
+            </div>
+            <div class="card">
+                <span class="card-head">CORE CONCEPT</span>
+                <div class="card-title">Smart Lookup</div>
+                <p>Impulse knows your plugins. Typing <code>"Glow"</code> will intelligently search for Deep Glow, VR Glow, or standard Glow depending on what you have installed.</p>
+            </div>
+            <div class="card">
+                <span class="card-head">CORE CONCEPT</span>
+                <div class="card-title">Relative Time</div>
+                <p>Never hard code frames again. Use <code>"in"</code>, <code>"out"</code>, and <code>"duration"</code> to make presets that work on any layer length.</p>
+            </div>
+        </div>
+
+        <h2 class="reveal">02. The Keywords</h2>
+        <p class="reveal">The entire language is built on 5 reserved keywords. Understand these, and you understand Impulse.</p>
+
+        <div class="grid-2 reveal">
+            <div class="card">
+                <code class="inline" style="color:var(--sh-keyword); font-size:1.2em;">effect = "..."</code>
+                <p style="margin-top:10px"><b>The Target Plugin.</b><br>
+                Accepts the name of any effect in AE. If you want to target the layer's native Transform properties (Scale, Rotation, etc.), set this to <code>"Transform"</code> (or leave it blank, it defaults to transform).</p>
+            </div>
+            <div class="card">
+                <code class="inline" style="color:var(--sh-keyword); font-size:1.2em;">property = "..."</code>
+                <p style="margin-top:10px"><b>The Parameter.</b><br>
+                The specific slider or value you want to animate. Examples: <code>"Opacity"</code>, <code>"Glow Radius"</code>, <code>"Blurriness"</code>, <code>"Position"</code>.</p>
+            </div>
+            <div class="card">
+                <code class="inline" style="color:var(--sh-keyword); font-size:1.2em;">keyframes = [...]</code>
+                <p style="margin-top:10px"><b>The Timing (Array).</b><br>
+                A list of times (in frames) where animation occurs. Can contain numbers <code>[0, 20]</code>, strings <code>["in", "out"]</code>, or math <code>["in", "in+20"]</code>.</p>
+            </div>
+            <div class="card">
+                <code class="inline" style="color:var(--sh-keyword); font-size:1.2em;">values = [...]</code>
+                <p style="margin-top:10px"><b>The Output (Array).</b><br>
+                The values corresponding to the keyframes. If you have 2 keyframes, you must have 2 values. Supports arrays for multi-dimensional properties like Position <code>[[0,0], [960,540]]</code>.</p>
+            </div>
+        </div>
+
+        <h2 class="reveal">03. Logic & Loops</h2>
+        <p class="reveal">Impulse V5 supports standard JavaScript logic. You can use loops to stack effects and conditionals to create smart presets.</p>
+
+        <div class="snippet-box reveal">
+            <div class="snippet-header">EXAMPLE: THE FOR LOOP</div>
+            <pre><span class="hl-c">// Creates 5 Drop Shadows, each one softer than the last</span>
+<span class="hl-v">for</span>(<span class="hl-v">var</span> i = <span class="hl-n">1</span>; i <= <span class="hl-n">5</span>; i++) {
+    <span class="hl-k">effect</span> = <span class="hl-s">"Drop Shadow"</span>;
+    <span class="hl-k">property</span> = <span class="hl-s">"Softness"</span>;
+    
+    <span class="hl-c">// Math: 10, 20, 30, 40, 50</span>
+    <span class="hl-k">values</span> = [i * <span class="hl-n">10</span>]; 
+}</pre>
+        </div>
+
+        <div class="snippet-box reveal">
+            <div class="snippet-header">EXAMPLE: CONDITIONAL IF/ELSE</div>
+            <pre><span class="hl-v">var</span> useGlow = <span class="hl-n">true</span>;
+
+<span class="hl-v">if</span>(useGlow == <span class="hl-n">true</span>) {
+    <span class="hl-k">effect</span> = <span class="hl-s">"Deep Glow"</span>;
+    <span class="hl-k">property</span> = <span class="hl-s">"Radius"</span>;
+    <span class="hl-k">values</span> = [<span class="hl-n">500</span>];
+} <span class="hl-v">else</span> {
+    <span class="hl-k">effect</span> = <span class="hl-s">"Tint"</span>;
+}</pre>
+        </div>
+
+        <h2 class="reveal">04. Math & Expressions</h2>
+        <p class="reveal">You can perform math operations directly inside the Arrays. This is useful for offsetting keyframes.</p>
+
+        <table class="reveal">
+            <thead>
+                <tr>
+                    <th>Operator</th>
+                    <th>Syntax</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Addition</td>
+                    <td><code>"in + 20"</code></td>
+                    <td>20 frames after the layer In Point.</td>
+                </tr>
+                <tr>
+                    <td>Subtraction</td>
+                    <td><code>"out - 15"</code></td>
+                    <td>15 frames before the layer Out Point.</td>
+                </tr>
+                <tr>
+                    <td>Multiplication</td>
+                    <td><code>i * 50</code></td>
+                    <td>Useful in loops for staggering values.</td>
+                </tr>
+                <tr>
+                    <td>Percentage</td>
+                    <td><code>"50%"</code></td>
+                    <td>(Coming in V5.1) Halfway through the clip.</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2 class="reveal">05. Reference Guide</h2>
+
+        <div class="grid-3 reveal">
+            <div class="card">
+                <span class="card-head">SHORTCUT</span>
+                <div class="card-title">Smart Variables</div>
+                <ul>
+                    <li><code>width</code> : Comp Width</li>
+                    <li><code>height</code> : Comp Height</li>
+                    <li><code>layer</code> : Current Layer Name</li>
+                    <li><code>index</code> : Layer Index</li>
+                </ul>
+            </div>
+            <div class="card">
+                <span class="card-head">SHORTCUT</span>
+                <div class="card-title">Color Hex Codes</div>
+                <p>You can use Hex codes for color properties.</p>
+                <code class="inline">values = ["#FF0000"]</code>
+            </div>
+            <div class="card">
+                <span class="card-head">SHORTCUT</span>
+                <div class="card-title">Randomization</div>
+                <p>Generate random numbers.</p>
+                <code class="inline">values = [Math.random()*100]</code>
+            </div>
+        </div>
+
+        <footer>
+            IMPULSE V5 ULTIMATE // DEVELOPED BY AEPNKJ // 2026<br>
+            <span style="opacity:0.5">Documentation Revision 5.0.2</span>
+        </footer>
+
+    </div>
+
+    <script>
+        // --- 1. PERFECT SCROLL SYNC (GHOST TEXT FIX) ---
+        function syncScroll() {
+            let input = document.getElementById("input-code");
+            let hl = document.getElementById("highlight-layer");
+            // Syncs both axes
+            hl.scrollTop = input.scrollTop;
+            hl.scrollLeft = input.scrollLeft;
+        }
+
+        // --- 2. SYNTAX HIGHLIGHTING ENGINE ---
+        function updateSyntax() {
+            let code = document.getElementById('input-code').value;
+            const hl = document.getElementById('highlight-layer');
+            
+            // 1. Escape HTML to prevent injection
+            code = code.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            
+            // 2. Tokenize & Wrap with Spans (Order matters!)
+            
+            // Strings (Double or Single quotes)
+            code = code.replace(/"(.*?)"/g, '<span class="hl-s">"$1"</span>');
+            
+            // Comments (// ...)
+            code = code.replace(/(\/\/.*)/g, '<span class="hl-c">$1</span>');
+            
+            // Keywords (Impulse Reserved)
+            code = code.replace(/\b(effect|property|keyframes|values|tkframe)\b/g, '<span class="hl-k">$1</span>');
+            
+            // Logic Keywords (JS)
+            code = code.replace(/\b(var|if|else|for|while|return)\b/g, '<span class="hl-v">$1</span>');
+            
+            // Numbers (Digits)
+            code = code.replace(/\b(\d+)\b/g, '<span class="hl-n">$1</span>');
+
+            // 3. Newlines
+            if (code[code.length-1] == "\n") { 
+                code += " "; 
+            }
+
+            hl.innerHTML = code;
+            syncScroll();
+        }
+
+        // --- 3. SCROLL ANIMATION (INTERSECTION OBSERVER) ---
+        document.addEventListener("DOMContentLoaded", () => {
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if(entry.isIntersecting) {
+                        entry.target.classList.add('active');
+                    }
+                });
+            }, { threshold: 0.1 });
+
+            document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+            
+            // Init Syntax
+            updateSyntax();
+        });
+
+        // --- 4. ADVANCED WAAPI COMPILER (MULTIPLE PROCESSING) ---
+        // This replaces the old setTimeout logic with true multi-threaded animation simulation
+        function runCompiler() {
+            const input = document.getElementById('input-code').value;
+            const layer = document.getElementById('demo-layer');
+            const logBox = document.getElementById('console');
+            
+            // 1. Reset System
+            logBox.innerHTML = '';
+            addLog("System", "Compiling Impulse V5 script...");
+            
+            // Cancel existing animations (Reset state)
+            layer.getAnimations().forEach(anim => anim.cancel());
+            layer.style.transform = 'none';
+            layer.style.opacity = '1';
+            layer.style.boxShadow = 'none';
+
+            // 2. Parse Text into Execution Blocks
+            let lines = input.split('\n');
+            let vars = {}; 
+            let blocks = [];
+            let currentBlock = {};
+
+            // Lexer
+            lines.forEach(line => {
+                let clean = line.split('//')[0].trim(); // Remove comments
+                if(!clean) return;
+
+                // Variable Assignment
+                if(clean.startsWith('var ')) {
+                    let parts = clean.replace('var ','').split('=');
+                    vars[parts[0].trim()] = parseFloat(parts[1]);
+                    return;
+                }
+
+                // Property Header
+                if(clean.startsWith('property')) {
+                    if(currentBlock.prop) blocks.push({...currentBlock});
+                    currentBlock = {}; 
+                    let val = clean.split('=')[1].replace(/["';]/g, '').trim();
+                    currentBlock.prop = val;
+                }
+
+                // Arrays (values / keyframes)
+                if(clean.startsWith('values') || clean.startsWith('keyframes')) {
+                    let type = clean.startsWith('values') ? 'vals' : 'keys';
+                    let arrStr = clean.match(/\[(.*?)\]/)[1];
+                    let arr = arrStr.split(',').map(item => {
+                        item = item.trim();
+                        // Variable Lookup
+                        if(vars[item] !== undefined) return vars[item];
+                        // Simple Math Evaluation (e.g., "time/2")
+                        if(item.includes('/')) {
+                            let m = item.split('/');
+                            let v1 = vars[m[0].trim()] || parseFloat(m[0]);
+                            return v1 / parseFloat(m[1]);
+                        }
+                        if(item.includes('*')) {
+                            let m = item.split('*');
+                            let v1 = vars[m[0].trim()] || parseFloat(m[0]);
+                            return v1 * parseFloat(m[1]);
+                        }
+                        return parseFloat(item);
+                    });
+                    currentBlock[type] = arr;
+                }
+            });
+            // Push final block
+            if(currentBlock.prop) blocks.push({...currentBlock});
+
+            addLog("Compiler", `Found ${blocks.length} execution blocks.`);
+
+            // 3. MULTI-PROCESS EXECUTION (Simultaneous)
+            blocks.forEach((block, index) => {
+                if(!block.prop || !block.vals || !block.keys) return;
+
+                let prop = block.prop.toLowerCase();
+                let vStart = block.vals[0];
+                let vEnd = block.vals[1];
+                let tStart = block.keys[0]; // Start time (ms)
+                let tEnd = block.keys[1];   // End time (ms)
+                let duration = tEnd - tStart;
+
+                addLog("Exe", `Processing ${block.prop} (${tStart}ms -> ${tEnd}ms)`);
+
+                let keyframes = [];
+                // Key: 'composite: add' allows multiple properties to animate at once without overriding
+                let options = {
+                    duration: duration,
+                    delay: tStart,
+                    fill: 'forwards', 
+                    composite: 'add' 
+                };
+
+                // Map Impulse Props to CSS WAAPI
+                if(prop === 'scale') {
+                    keyframes = [
+                        { transform: `scale(${vStart/100})` },
+                        { transform: `scale(${vEnd/100})` }
+                    ];
+                } 
+                else if(prop === 'rotation') {
+                    keyframes = [
+                        { transform: `rotate(${vStart}deg)` },
+                        { transform: `rotate(${vEnd}deg)` }
+                    ];
+                }
+                else if(prop === 'opacity') {
+                    keyframes = [
+                        { opacity: vStart/100 },
+                        { opacity: vEnd/100 }
+                    ];
+                }
+                else if(prop.includes('glow')) {
+                    keyframes = [
+                        { boxShadow: `0 0 ${vStart}px #00ccff` },
+                        { boxShadow: `0 0 ${vEnd}px #00ccff` }
+                    ];
+                }
+
+                // Fire the thread
+                if(keyframes.length > 0) {
+                    layer.animate(keyframes, options);
+                }
+            });
+            
+            if(blocks.length > 0) addLog("System", "All threads active.");
+        }
+
+        function addLog(source, msg) {
+            const logBox = document.getElementById('console');
+            let d = new Date();
+            let time = d.getHours() + ":" + d.getMinutes() + ":" + d.getSeconds();
+            logBox.innerHTML += `
+                <div class="log-entry">
+                    <span class="log-time" style="color:#444">[${time}]</span>
+                    <span style="color:var(--accent)">${source}:</span>
+                    <span>${msg}</span>
+                </div>`;
+            logBox.scrollTop = logBox.scrollHeight;
+        }
+
+    </script>
+</body>
+</html>
